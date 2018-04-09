@@ -122,7 +122,7 @@ class BandCampSkill(AudioSkill):
         self.bandcamp_play(urls=urls)
 
     @intent_handler(IntentBuilder("BandCampPlay").require(
-        "bandcamp").one_of("search", "play"))
+        "bandcamp").one_of(["search", "play"]))
     def handle_play_song_intent(self, message):
         # use adapt if band camp is included in the utterance
         # use the utterance remainder as query
@@ -131,7 +131,7 @@ class BandCampSkill(AudioSkill):
 
     @intent_handler(IntentBuilder("BandCampSearch")
                     .require("bandcamp").require("search")
-                    .at_least_one("artist", "album", "tag", "track"))
+                    .at_least_one(["artist", "album", "tag", "track"]))
     def handle_search_song_intent(self, message):
         # use adapt if band camp is included in the utterance
         # use the utterance remainder as query
