@@ -12,9 +12,9 @@ Uses [AudioSkill](https://github.com/JarbasAl/mycroft_jarbas_utils/blob/master/m
 
 ## examples
 
-* "play stoner from bandcamp"
+* "play cyber punk from bandcamp"
 * "search band camp for black metal by tag"
-* "search band camp for cyber punk by artist"
+* "search band camp for calibro 35 by artist"
 * "search band camp for center of all infinity by album"
 * "search band camp for astronaut problems by track"
 

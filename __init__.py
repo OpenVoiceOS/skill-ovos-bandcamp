@@ -3,7 +3,7 @@ from py_bandcamp import BandCamper
 from mycroft.skills.core import intent_handler, IntentBuilder, \
     intent_file_handler
 from mycroft_jarbas_utils.skills.audio import AudioSkill
-
+from mycroft.util.log import LOG
 from os import listdir
 import csv
 import json
@@ -139,7 +139,8 @@ class BandCampSkill(AudioSkill):
         urls = []
         i = 0
         if "tag" in message.data:
-            for item in self.band_camp.search_albums_by_tag(title):
+            for item in self.band_camp.search_tag(title):
+                LOG.info(str(item))
                 try:
                     urls.append(item["url"])
                     i += 1
@@ -149,6 +150,7 @@ class BandCampSkill(AudioSkill):
                     pass
         elif "album" in message.data:
             for item in self.band_camp.search_albums(title):
+                LOG.info(str(item))
                 try:
                     urls.append(item["url"])
                     i += 1
@@ -158,6 +160,7 @@ class BandCampSkill(AudioSkill):
                     pass
         elif "artist" in message.data:
             for item in self.band_camp.search_artists(title):
+                LOG.info(str(item))
                 try:
                     urls.append(item["url"])
                     i += 1
@@ -167,6 +170,7 @@ class BandCampSkill(AudioSkill):
                     pass
         elif "track" in message.data:
             for item in self.band_camp.search_tracks(title):
+                LOG.info(str(item))
                 try:
                     urls.append(item["url"])
                     i += 1
@@ -198,6 +202,7 @@ class BandCampSkill(AudioSkill):
         streams = []
         self.log.info("Searching Bandcamp for " + title)
         for item in self.band_camp.search(title):
+            LOG.info(str(item))
             try:
                 streams.append(item["url"])
             except:

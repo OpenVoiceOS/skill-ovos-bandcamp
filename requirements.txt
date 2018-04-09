@@ -1,2 +1,2 @@
-py_bandcamp
+py_bandcamp>=0.4
 mycroft_jarbas_utils>=0.13.7
