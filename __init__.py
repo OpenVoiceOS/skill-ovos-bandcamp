@@ -20,7 +20,7 @@ class BandCampSkill(AudioSkill):
                                    "mplayer"]
         super(BandCampSkill, self).__init__()
         self.add_filter("music")
-        self.settings.set_callback(self.get_playlists_from_file)
+        self.settings.set_changed_callback(self.get_playlists_from_file)
         self.band_camp = BandCamper()
         if "max_stream_number" not in self.settings:
             self.settings["max_stream_number"] = 5
