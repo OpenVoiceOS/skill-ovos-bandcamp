@@ -4,7 +4,7 @@ from mycroft.skills.core import intent_handler, IntentBuilder, \
     intent_file_handler
 from mycroft_jarbas_utils.skills.audio import AudioSkill
 from mycroft.util.log import LOG
-from os import listdir
+from os import listdir, makedirs
 import csv
 import json
 from os.path import join, dirname, exists
@@ -74,7 +74,7 @@ class BandCampSkill(AudioSkill):
             name += ".value"
 
         try:
-            with open(join(self.settings["playlist_files"], name)) as f:
+            with open(join(self.settings["named_urls"], name)) as f:
                 reader = csv.reader(f, delimiter=delim)
                 for row in reader:
                     # skip blank or comment lines
@@ -93,8 +93,9 @@ class BandCampSkill(AudioSkill):
     def get_playlists_from_file(self):
         # read configured radio stations
         stations = {}
-
-        styles = listdir(self.settings["playlist_files"])
+        if not exists(self.settings["named_urls"]):
+            makedirs(self.settings["named_urls"])
+        styles = listdir(self.settings["named_urls"])
         for style in styles:
             name = style.replace(".value", "")
             if name not in stations:
@@ -138,6 +139,7 @@ class BandCampSkill(AudioSkill):
         title = message.utterance_remainder()
         urls = []
         i = 0
+        self.speak_dialog("searching.bandcamp", {"music": title})
         if "tag" in message.data:
             for item in self.band_camp.search_tag(title):
                 LOG.info(str(item))
@@ -178,6 +180,7 @@ class BandCampSkill(AudioSkill):
                         break
                 except:
                     pass
+        self.log.info("Bandcamp streams:" + str(urls))
         self.bandcamp_play(urls=urls)
 
     @intent_file_handler("bandcamp.intent")
@@ -200,14 +203,16 @@ class BandCampSkill(AudioSkill):
 
     def bandcamp_search(self, title):
         streams = []
+        self.enclosure.mouth_think()
         self.log.info("Searching Bandcamp for " + title)
+        self.speak_dialog("searching.bandcamp", {"music": title})
         for item in self.band_camp.search(title):
             LOG.info(str(item))
             try:
                 streams.append(item["url"])
             except:
                 continue
-        self.log.info("Bandcamp streams:" + str(streams))
+        self.log.info("Bandcamp urls:" + str(streams))
         return streams
 
     def bandcamp_play(self, title=None, urls=None):
@@ -217,20 +222,25 @@ class BandCampSkill(AudioSkill):
             urls = [urls]
         # was a search requested ?
         if title is not None:
-            self.speak_dialog("searching.bandcamp", {"music": title})
             urls = self.bandcamp_search(title)
         # do we have urls to play ?
         playlist = []
         if len(urls):
             for url in urls:
                 if "bandcamp" in url:
-                    playlist += self.band_camp.get_streams(url)
+                    streams = self.band_camp.get_streams(url)
+                    LOG.info("direct stream urls: " + str(streams))
+                    playlist += streams
                 else:
                     playlist.append(url)
-            self.play(playlist)
-        else:
-            raise AssertionError("no bandcamp urls to play")
+            LOG.info("playlist: " + str(playlist))
+            if len(playlist):
+                self.play(playlist)
+                return
+        self.speak_dialog("play.error")
 
 
 def create_skill():
     return BandCampSkill()
+
+
