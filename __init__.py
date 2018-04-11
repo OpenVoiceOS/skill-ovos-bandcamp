@@ -15,6 +15,7 @@ __author__ = 'jarbas'
 
 class BandCampSkill(AudioSkill):
     def __init__(self):
+        raise AssertionError("this is broken, py_bandcamp no longer correctly gets direct streams")
         self.named_urls = {}
         self.backend_preference = ["chromecast", "mopidy", "mpv", "vlc",
                                    "mplayer"]
