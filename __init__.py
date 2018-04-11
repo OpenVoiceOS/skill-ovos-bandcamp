@@ -228,8 +228,9 @@ class BandCampSkill(AudioSkill):
         if len(urls):
             for url in urls:
                 if "bandcamp" in url:
+                    LOG.info("getting direct stream url: " + url)
                     streams = self.band_camp.get_streams(url)
-                    LOG.info("direct stream urls: " + str(streams))
+                    LOG.info("direct stream url: " + str(streams))
                     playlist += streams
                 else:
                     playlist.append(url)
