@@ -124,6 +124,16 @@ class BandCampSkill(CommonPlaySkill):
          multi - some key already matched (artist/track/album)
          """
         self.extend_timeout(phrase)
+
+        if "audio_url" in match:
+            match["stream"] = match.pop("audio_url").pop('mp3-128')
+        elif not match.get("stream"):
+            try:
+                match["stream"] = BandCamper.get_stream_url(match["url"])
+            except Exception as e:
+                self.log.error(e)
+                return None
+
         # Get match_type and base_score
         match_type = CPSMatchLevel.GENERIC
         score = 0.5

@@ -1,15 +1,14 @@
-## Band Camp Skill
+# <img src='./icon.png' width='50' height='50' style='vertical-align:bottom'/> Band Camp Skill
 
-for your hipster music needs
 
-![](./logo.png)
+## About
 
-## Description
+Bandcamp skill for your hipster music needs
 
-Common play skill for bandcamp
+![](./screenshot.png)
 
-## examples
 
+## Examples
 * "play compressorhead"
 * "play astronaut problems"
 * "play {artist/album/genre/track}"
@@ -26,8 +25,15 @@ Common play skill for bandcamp
 * "play EP by naxatras"
 * "play {album} by {artist}"
 
+## Credits
+JarbasAl
 
-## credits
+## Category
+**Entertainment**
 
-JarbasAI
+## Tags
+- music
+- audio
+- bandcamp
+- common play
 
