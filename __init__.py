@@ -1,12 +1,14 @@
 from py_bandcamp import BandCamper
 from mycroft.util.parse import match_one, fuzzy_match
-from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
+from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel,\
+    CPSTrackStatus
 from tempfile import gettempdir
 from os.path import join, isfile, dirname
 import requests
 from mycroft.messagebus import Message
 from mycroft.skills.core import intent_file_handler
 import distutils.spawn
+from time import sleep
 import random
 from auto_regex import AutoRegex
 
@@ -23,6 +25,8 @@ class BandCampSkill(CommonPlaySkill):
             self.settings["force_local"] = False
         if "force_vlc" not in self.settings:
             self.settings["force_vlc"] = False
+        if "force_mplayer" not in self.settings:
+            self.settings["force_mplayer"] = False
         if "download" not in self.settings:
             self.settings["download"] = True
         if "shuffle" not in self.settings:
@@ -134,25 +138,25 @@ class BandCampSkill(CommonPlaySkill):
                 self.log.error(e)
                 return None
 
-        # Get match_type and base_score
-        match_type = CPSMatchLevel.GENERIC
+        # Get match_level and base_score
+        match_level = CPSMatchLevel.GENERIC
         score = 0.5
         if match.get("name") and not match.get("artist"):
             match["artist"] = match.pop("name")
         if match["type"] == "artist":
-            match_type = CPSMatchLevel.ARTIST
+            match_level = CPSMatchLevel.ARTIST
             if match.get("artist"):
                 score = fuzzy_match(phrase, match["artist"])
         elif match["type"] == "track":
-            match_type = CPSMatchLevel.TITLE
+            match_level = CPSMatchLevel.TITLE
             if match.get("track_name"):
                 score = fuzzy_match(phrase, match["track_name"])
         elif match["type"] == "album":
-            match_type = CPSMatchLevel.TITLE
+            match_level = CPSMatchLevel.TITLE
             if match.get("album_name"):
                 score = fuzzy_match(phrase, match["album_name"])
         elif match["type"] == "tag":
-            match_type = CPSMatchLevel.CATEGORY
+            match_level = CPSMatchLevel.CATEGORY
             score = 0.6
 
         # score modifiers
@@ -160,9 +164,9 @@ class BandCampSkill(CommonPlaySkill):
             new_score = fuzzy_match(phrase, match["artist"])
             if new_score >= score:
                 if match["type"] != "artist":
-                    match_type = CPSMatchLevel.MULTI_KEY
+                    match_level = CPSMatchLevel.MULTI_KEY
                 else:
-                    match_type = CPSMatchLevel.ARTIST
+                    match_level = CPSMatchLevel.ARTIST
                 score = new_score
             else:
                 score += new_score * 0.5
@@ -170,9 +174,9 @@ class BandCampSkill(CommonPlaySkill):
             new_score = fuzzy_match(phrase, match["track_name"])
             if new_score >= score:
                 if match["type"] != "track":
-                    match_type = CPSMatchLevel.MULTI_KEY
+                    match_level = CPSMatchLevel.MULTI_KEY
                 else:
-                    match_type = CPSMatchLevel.TITLE
+                    match_level = CPSMatchLevel.TITLE
                 score = new_score
             else:
                 score += new_score * 0.5
@@ -180,9 +184,9 @@ class BandCampSkill(CommonPlaySkill):
             new_score = fuzzy_match(phrase, match["album_name"])
             if new_score >= score:
                 if match["type"] != "album":
-                    match_type = CPSMatchLevel.MULTI_KEY
+                    match_level = CPSMatchLevel.MULTI_KEY
                 else:
-                    match_type = CPSMatchLevel.TITLE
+                    match_level = CPSMatchLevel.TITLE
                 score = new_score
             else:
                 score += new_score * 0.5
@@ -191,7 +195,7 @@ class BandCampSkill(CommonPlaySkill):
             for t in match["tags"]:
                 tag_score = fuzzy_match(phrase, t)
                 if tag_score > score:
-                    match_type = CPSMatchLevel.CATEGORY
+                    match_level = CPSMatchLevel.CATEGORY
                     score = tag_score
                 else:
                     score += tag_score * 0.3
@@ -200,26 +204,34 @@ class BandCampSkill(CommonPlaySkill):
             for tag in match["related_tags"]:
                 new_score = tag["score"]
                 if new_score > score:
-                    match_type = CPSMatchLevel.CATEGORY
+                    match_level = CPSMatchLevel.CATEGORY
                     score = new_score
                 else:
                     score += new_score * 0.3
 
         # If the confidence is high enough return an exact match
         if score >= 0.9 or explicit:
-            match_type = CPSMatchLevel.EXACT
+            match_level = CPSMatchLevel.EXACT
         elif multi:
-            match_type = CPSMatchLevel.MULTI_KEY
+            match_level = CPSMatchLevel.MULTI_KEY
+
+        # add to disambiguation page
+        data = match
+        data["uri"] = match["stream"]
+        data["status"] = CPSTrackStatus.DISAMBIGUATION
+        data["score"] = score
+        data["match_level"] = match_level
+        self.CPS_send_status(**data)
 
         if score >= 0.5:
-            return (phrase, match_type, match)
+            return (phrase, match_level, match)
         # if low confidence return None
         else:
             return None
 
     def play(self, path, utterance=None, track_data=None):
         track_data = track_data or {}
-        self.CPS_play(path, utterance=utterance)
+
         artist = track_data.get("artist", "") or \
                  track_data.get("band_name", "") or \
                  track_data.get("name", "") or \
@@ -230,7 +242,11 @@ class BandCampSkill(CommonPlaySkill):
         image = track_data.get("image", "")
         album = track_data.get("album_name", "") or \
                 track_data.get("title", "") or track_data.get("name", "")
-        self.CPS_send_status(artist, track, image, genre, album)
+        self.CPS_send_status(uri=path, artist=artist, track=track, album=album,
+                             image=image,  track_length="", current_position=0,
+                             genre=genre, playlist_position=0,
+                             status=CPSTrackStatus.QUEUED_AUDIOSERVICE)
+        self.CPS_play(path, utterance=utterance)
 
     @intent_file_handler("bandcamp.intent")
     def handle_search_bandcamp_intent(self, message):
@@ -406,29 +422,14 @@ class BandCampSkill(CommonPlaySkill):
         else:
             self.play(playlist[0], utterance, tracks[0])
 
-        self.CPS_send_list(tracks)
-        if len(playlist) > 1:
-            self.audioservice.queue(playlist[1:])
-
-    def CPS_send_status(self, artist='', track='', image='', genre="",
-                        album=""):
-        image = image or join(dirname(__file__), "logo.png")
-        data = {'skill': self.name,
-                'artist': artist,
-                'track': track,
-                'image': image,
-                'genre': genre,
-                "album": album,
-                'status': None  # TODO Add status system
-                }
-        self.bus.emit(Message('play:status', data))
-
-    def CPS_send_list(self, tracks=None):
-        # TODO PR in core
-        data = {'skill': self.name,
-                'tracks': tracks or []
-                }
-        self.bus.emit(Message('play:tracks', data))
+        sleep(1)  # TODO wait for track start or queueing will be missed
+        for idx, track in enumerate(playlist[1:]):
+            self.audioservice.queue(track, utterance=utterance, autoplay=False)
+            data = tracks[idx]
+            data["uri"] = track
+            data["playlist_position"] = idx
+            data["status"] = CPSTrackStatus.QUEUED_AUDIOSERVICE
+            self.CPS_send_status(**data)
 
 
 def create_skill():
