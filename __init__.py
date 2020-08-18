@@ -1,7 +1,7 @@
 from py_bandcamp import BandCamper
 from mycroft.util.parse import match_one, fuzzy_match
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel,\
-    CPSTrackStatus
+    CPSTrackStatus#, CPSMatchType
 from tempfile import gettempdir
 from os.path import join, isfile, dirname
 import requests
@@ -10,6 +10,7 @@ from mycroft.skills.core import intent_file_handler
 import distutils.spawn
 from time import sleep
 import random
+import re
 from auto_regex import AutoRegex
 
 # not sure this is from this skill, but damn those logs are annoying
@@ -37,6 +38,7 @@ class BandCampSkill(CommonPlaySkill):
             # album plays full album  (TODO)
             self.settings["num_results"] = 3
         self.regexes = {}
+        #self.supported_media = [CPSMatchType.GENERIC, CPSMatchType.MUSIC]
 
     def initialize(self):
         self._load_rx("track_album")
@@ -53,62 +55,62 @@ class BandCampSkill(CommonPlaySkill):
                 self.regexes[regex] = [r for r in rules if r.strip()]
         return self.regexes[regex]
 
-    def parse_search(self, utterance):
+        # common play
+
+    def remove_voc(self, utt, voc_filename, lang=None):
+        lang = lang or self.lang
+        cache_key = lang + voc_filename
+
+        if cache_key not in self.voc_match_cache:
+            self.voc_match(utt, voc_filename, lang)
+
+        if utt:
+            # Check for matches against complete words
+            for i in self.voc_match_cache[cache_key]:
+                # Substitute only whole words matching the token
+                utt = re.sub(r'\b' + i + r"\b", "", utt)
+
+        return utt
+
+    def clean_vocs(self, phrase):
+        phrase = self.remove_voc(phrase, "bandcamp")
+        phrase = self.remove_voc(phrase, "AudioBackend")
+        phrase = self.remove_voc(phrase, "artist")
+        phrase = self.remove_voc(phrase, "track")
+        phrase = self.remove_voc(phrase, "album")
+        phrase = self.remove_voc(phrase, "tag")
+        phrase = self.remove_voc(phrase, "tag_names")
+        phrase = phrase.strip()
+        return phrase
+
+    def parse_search(self, original):
         """
         parse query type, this logic is more or less provider agnostic
         """
-        remainder = utterance
-        replaces = []
         search_type = "generic"
-        explicit = False
-        if self.voc_match(utterance, "bandcamp"):
-            # bandcamp requested explicitly
-            k = self.lang + "bandcamp"
-            replaces += self.voc_match_cache[k]
-            explicit = True
-        if self.voc_match(utterance, "AudioBackend"):
-            # remove audio backend request from phrase
-            k = self.lang + "AudioBackend"
-            replaces += self.voc_match_cache[k]
-
-        if self.voc_match(utterance, "artist"):
+        if self.voc_match(original, "artist"):
             search_type = "artist"
-            k = self.lang + "artist"
-            replaces += self.voc_match_cache[k]
-        elif self.voc_match(utterance, "track"):
+        elif self.voc_match(original, "track"):
             search_type = "track"
-            k = self.lang + "track"
-            replaces += self.voc_match_cache[k]
-        elif self.voc_match(utterance, "album"):
+        elif self.voc_match(original, "album"):
             search_type = "album"
-            k = self.lang + "album"
-            replaces += self.voc_match_cache[k]
-        elif self.voc_match(utterance, "tag"):
-            search_type = "tag"
-            k = self.lang + "tag"
-            replaces += self.voc_match_cache[k]
+        elif self.voc_match(original, "tag"):
+           # validate tag
+            tag = original.replace(" ", "-").lower().strip()
+            if tag in BandCamper.tags():
+                search_type = "tag"
+        elif self.voc_match(original, "tag_names"):
             # validate tag
-            tag = utterance.replace(" ", "-").lower().strip()
-            if tag not in BandCamper.tags():
-                search_type = "generic"
-        elif self.voc_match(utterance, "tag_names"):
-            search_type = "tag"
-            # validate tag
-            tag = utterance.replace(" ", "-").lower().strip()
-            if tag not in BandCamper.tags():
-                search_type = "generic"
-
-        # clean string
-        replaces = sorted(replaces, key=len, reverse=True)
-        for r in replaces:
-            remainder = remainder.replace(r, "").strip()
-        data = {"query": remainder}
+            tag = original.replace(" ", "-").lower().strip()
+            if tag in BandCamper.tags():
+                search_type = "tag"
 
         # autoregex rules
+        data = {}
         for r in self.regexes:
             rx = AutoRegex()
             rx.add_rules(self.regexes[r])
-            matches = list(rx.extract(utterance))
+            matches = list(rx.extract(original))
             if len(matches):
                 search_type = r
                 if search_type == "n_album":
@@ -116,7 +118,7 @@ class BandCampSkill(CommonPlaySkill):
                 data = {"query": matches[0]["track"]}
                 data.update(matches[0])
 
-        return search_type, explicit, data
+        return search_type, data
 
     def xtract_and_score(self, match, phrase, explicit=False, multi=False):
         """ Score each match and extract real streams
@@ -267,14 +269,15 @@ class BandCampSkill(CommonPlaySkill):
                                "searching": True,
                                "skill_id": self.skill_id}))
 
-    def CPS_match_query_phrase(self, phrase):
+    def CPS_match_query_phrase(self, phrase):  # , media_type
         original = phrase
-        search_type, explicit, query_data = self.parse_search(phrase)
-        phrase = query_data["query"]
-
-        self.extend_timeout(original) # webscrapping takes a while
+        self.extend_timeout(original)  # webscrapping takes a while
+        search_type, query_data = self.parse_search(original)
+        phrase = self.clean_vocs(phrase)
+        explicit = bool(self.voc_match(original, "bandcamp"))
 
         if search_type == "generic":
+
             for match in BandCamper.search(phrase):
                 data = self.xtract_and_score(match, original, explicit)
                 if data:
