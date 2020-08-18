@@ -7,6 +7,7 @@ from os.path import join, isfile, dirname
 import requests
 from mycroft.messagebus import Message
 from mycroft.skills.core import intent_file_handler
+from mycroft.util import create_daemon
 import distutils.spawn
 from time import sleep
 import random
@@ -39,6 +40,7 @@ class BandCampSkill(CommonPlaySkill):
             self.settings["num_results"] = 3
         self.regexes = {}
         #self.supported_media = [CPSMatchType.GENERIC, CPSMatchType.MUSIC]
+        self._stop = False
 
     def initialize(self):
         self._load_rx("track_album")
@@ -46,6 +48,19 @@ class BandCampSkill(CommonPlaySkill):
         self._load_rx("track_album_artist")
         self._load_rx("n_album") # track number N from {album}
 
+    @intent_file_handler("bandcamp.intent")
+    def handle_search_bandcamp_intent(self, message):
+        """ handles bandcamp searches that dont start with "play" which
+        means they would miss the CommonPlay framework invocation """
+        title = message.data.get("music")
+        self.speak_dialog("searching.bandcamp", {"music": title})
+        match = self.CPS_match_query_phrase(title)
+        if match is not None:
+            self.CPS_start(title, match[2])
+        else:
+            self.speak_dialog("play.error")
+
+    # parsing
     def _load_rx(self, regex):
         if regex not in self.regexes:
             path = self.find_resource(regex + '.autoregex', "vocab")
@@ -54,8 +69,6 @@ class BandCampSkill(CommonPlaySkill):
                     rules = f.read().split("\n")
                 self.regexes[regex] = [r for r in rules if r.strip()]
         return self.regexes[regex]
-
-        # common play
 
     def remove_voc(self, utt, voc_filename, lang=None):
         lang = lang or self.lang
@@ -120,7 +133,7 @@ class BandCampSkill(CommonPlaySkill):
 
         return search_type, data
 
-    def xtract_and_score(self, match, phrase, explicit=False, multi=False):
+    def score_match(self, match, phrase, multi=False):
         """ Score each match and extract real streams
          This logic is bandcamp specific
 
@@ -129,7 +142,7 @@ class BandCampSkill(CommonPlaySkill):
          explicit - exact match because bandcamp was requested
          multi - some key already matched (artist/track/album)
          """
-        self.extend_timeout(phrase)
+        explicit = bool(self.voc_match(phrase, "bandcamp"))
 
         if "audio_url" in match:
             match["stream"] = match.pop("audio_url").pop('mp3-128')
@@ -231,60 +244,17 @@ class BandCampSkill(CommonPlaySkill):
         else:
             return None
 
-    def play(self, path, utterance=None, track_data=None):
-        track_data = track_data or {}
-
-        artist = track_data.get("artist", "") or \
-                 track_data.get("band_name", "") or \
-                 track_data.get("name", "") or \
-                 track_data.get("title", "")
-        track = track_data.get("featured_track_title", "") or \
-                track_data.get("track_name", "") or track_data.get("title", "")
-        genre = track_data.get("genre", "")
-        image = track_data.get("image", "")
-        album = track_data.get("album_name", "") or \
-                track_data.get("title", "") or track_data.get("name", "")
-        self.CPS_send_status(uri=path, artist=artist, track=track, album=album,
-                             image=image,  track_length="", current_position=0,
-                             genre=genre, playlist_position=0,
-                             status=CPSTrackStatus.QUEUED_AUDIOSERVICE)
-        self.CPS_play(path, utterance=utterance)
-
-    @intent_file_handler("bandcamp.intent")
-    def handle_search_bandcamp_intent(self, message):
-        """ handles bandcamp searches that dont start with "play" which
-        means they would miss the CommonPlay framework invocation """
-        title = message.data.get("music")
-        self.speak_dialog("searching.bandcamp", {"music": title})
-        match = self.CPS_match_query_phrase(title)
-        if match is not None:
-            self.CPS_start(title, match[2])
-        else:
-            self.speak_dialog("play.error")
-
-    def extend_timeout(self, phrase):
-        # extend timeout
-        self.bus.emit(Message('play:query.response',
-                              {"phrase": phrase,
-                               "searching": True,
-                               "skill_id": self.skill_id}))
-
-    def CPS_match_query_phrase(self, phrase):  # , media_type
-        original = phrase
-        self.extend_timeout(original)  # webscrapping takes a while
-        search_type, query_data = self.parse_search(original)
-        phrase = self.clean_vocs(phrase)
-        explicit = bool(self.voc_match(original, "bandcamp"))
+    def match_one(self, search_type, query_data,
+                  phrase):
 
         if search_type == "generic":
-
             for match in BandCamper.search(phrase):
-                data = self.xtract_and_score(match, original, explicit)
-                if data:
-                    return data
+                # webscrapping takes a while
+                return self.score_match(match, phrase)
 
         if "track" in search_type:
             for match in BandCamper.search_tracks(phrase):
+                # webscrapping takes a while
                 multi = False
                 if query_data.get("album"):
                     # require album match
@@ -302,9 +272,7 @@ class BandCampSkill(CommonPlaySkill):
                         continue
                     self.log.debug("artist matches track")
                     multi = True
-                data = self.xtract_and_score(match, original, explicit, multi)
-                if data:
-                    return data
+                return self.score_match(match, phrase, multi)
 
         if "album" in search_type:
             if query_data.get("album"):
@@ -314,8 +282,8 @@ class BandCampSkill(CommonPlaySkill):
                 query = phrase
 
             # TODO check requested track number
-
             for match in BandCamper.search_albums(query):
+                # webscrapping takes a while
                 multi = False
                 if query_data.get("artist"):
                     # require artist match
@@ -325,15 +293,13 @@ class BandCampSkill(CommonPlaySkill):
                         continue
                     self.log.debug("artist matches album")
                     multi = True
-                data = self.xtract_and_score(match, original, explicit, multi)
-                if data:
-                    # TODO extract playlist (pybandcamp)
-                    return data
+                return self.score_match(match, phrase, multi)
+                # TODO extract playlist (pybandcamp)
 
         if "artist" in search_type:
 
             for match in BandCamper.search_artists(phrase):
-                self.extend_timeout(original) # this step takes longer
+                # this step takes longer
                 # because more parsing is needed
 
                 multi = False
@@ -341,8 +307,9 @@ class BandCampSkill(CommonPlaySkill):
                 if query_data.get("album"):
                     # require album match
                     if len(albums):
-                        album, score = match_one(query_data["album"].lower(),
-                                            albums)
+                        album, score = match_one(
+                            query_data["album"].lower(),
+                            albums)
                         if score < 0.8:
                             continue
                         self.log.debug("album matches artist")
@@ -356,31 +323,59 @@ class BandCampSkill(CommonPlaySkill):
                     # track might also mean album, also check it but dont
                     # require
                     if len(albums):
-                        album, score = match_one(query_data["track"].lower(),
-                                            albums)
+                        album, score = match_one(
+                            query_data["track"].lower(),
+                            albums)
                         if score >= 0.8:
                             self.log.debug("album matches artist")
                             idx = albums.index(album)
                             album_url = match["albums"][idx]["url"]
-                            match.update(BandCamper.get_stream_data(album_url))
+                            match.update(
+                                BandCamper.get_stream_data(album_url))
                             multi = True
 
-                data = self.xtract_and_score(match, original, explicit, multi)
-                if data:
-                    # TODO extract playlist (pybandcamp)
-                    return data
+                return self.score_match(match, phrase, multi)
+                # TODO extract playlist (pybandcamp)
 
         if search_type == "tag":
             # pages do not need to be scrapped, full json data available at
             # once
-            matches = list(BandCamper.search_tag(phrase))[:self.settings["num_results"]]
+            matches = list(BandCamper.search_tag(phrase))[
+                      :self.settings["num_results"]]
             if len(matches):
                 match = {
-                    "playlist": [m["audio_url"]['mp3-128'] for m in matches],
+                    "playlist": [m["audio_url"]['mp3-128'] for m in
+                                 matches],
                     "tracks": matches
                 }
                 return (phrase, CPSMatchLevel.CATEGORY, match)
         return None
+
+    # common play
+    def CPS_extend_timeout(self, timeout=5):
+        self.bus.emit(Message('play:query.response',
+                              {"phrase": self.play_service_string,
+                               "searching": True,
+                               "timeout": timeout,
+                               "skill_id": self.skill_id}))
+
+    def CPS_match_query_phrase(self, phrase):  # , media_type
+        original = phrase
+        self.play_service_string = original
+        self.CPS_extend_timeout(15)
+          # webscrapping takes a while
+        search_type, query_data = self.parse_search(original)
+        self.log.debug("Bandcamp search type: " + search_type)
+        phrase = self.clean_vocs(phrase)
+
+
+        match = self.match_one(search_type, query_data, phrase)
+        print(match)
+        if match:
+            self.search_type = search_type
+            self.query_data = query_data
+            self.play_service_string = phrase
+        return match
 
     def CPS_start(self, phrase, data):
         self.log.debug("Bandcamp data: " + str(data))
@@ -434,6 +429,136 @@ class BandCampSkill(CommonPlaySkill):
             data["status"] = CPSTrackStatus.QUEUED_AUDIOSERVICE
             self.CPS_send_status(**data)
 
+        self.populate_disambiguation_page()
+
+    def play(self, path, utterance=None, track_data=None):
+        self._stop = False
+        track_data = track_data or {}
+
+        artist = track_data.get("artist", "") or \
+                 track_data.get("band_name", "") or \
+                 track_data.get("name", "") or \
+                 track_data.get("title", "")
+        track = track_data.get("featured_track_title", "") or \
+                track_data.get("track_name", "") or track_data.get("title", "")
+        genre = track_data.get("genre", "")
+        image = track_data.get("image", "")
+        album = track_data.get("album_name", "") or \
+                track_data.get("title", "") or track_data.get("name", "")
+        self.CPS_send_status(uri=path, artist=artist, track=track, album=album,
+                             image=image,  track_length="", current_position=0,
+                             genre=genre, playlist_position=0,
+                             status=CPSTrackStatus.QUEUED_AUDIOSERVICE)
+        self.CPS_play(path, utterance=utterance)
+
+    def populate_disambiguation_page(self):
+        search_type = self.search_type
+        query_data = self.query_data
+        phrase = self.play_service_string
+        if search_type == "generic":
+            for match in BandCamper.search(phrase):
+                if self._stop:
+                    return
+                data = self.score_match(match, phrase)
+
+        elif "track" in search_type:
+            for match in BandCamper.search_tracks(phrase):
+                if self._stop:
+                    return
+                multi = False
+                if query_data.get("album"):
+                    # require album match
+                    score = fuzzy_match(query_data["album"].lower(),
+                                        match["album_name"].lower())
+                    if score < 0.75:
+                        continue
+                    self.log.debug("album matches track")
+                    multi = True
+                if query_data.get("artist"):
+                    score = fuzzy_match(query_data["artist"].lower(),
+                                        match["artist"].lower())
+                    if score < 0.85 and not query_data.get("album"):
+                        # require artist match if no album match
+                        continue
+                    self.log.debug("artist matches track")
+                    multi = True
+                data = self.score_match(match, phrase, multi)
+
+        elif "album" in search_type:
+            if query_data.get("album"):
+                # album name extracted with regex
+                query = query_data["album"]
+            else:
+                query = phrase
+
+            # TODO check requested track number
+            for match in BandCamper.search_albums(query):
+                if self._stop:
+                    return
+                multi = False
+                if query_data.get("artist"):
+                    # require artist match
+                    score = fuzzy_match(query_data["artist"].lower(),
+                                        match["artist"].lower())
+                    if score < 0.85:
+                        continue
+                    self.log.debug("artist matches album")
+                    multi = True
+                data = self.score_match(match, phrase, multi)
+                 # TODO extract playlist (pybandcamp)
+
+        elif "artist" in search_type:
+
+            for match in BandCamper.search_artists(phrase):
+                if self._stop:
+                    return
+                multi = False
+                albums = [a["album_name"].lower() for a in match["albums"]]
+                if query_data.get("album"):
+                    # require album match
+                    if len(albums):
+                        album, score = match_one(query_data["album"].lower(),
+                                                 albums)
+                        if score < 0.8:
+                            continue
+                        self.log.debug("album matches artist")
+                        idx = albums.index(album)
+                        album_url = match["albums"][idx]["url"]
+                        match.update(BandCamper.get_stream_data(album_url))
+                        multi = True
+                    else:
+                        continue
+                elif query_data.get("track"):
+                    # track might also mean album, also check it but dont
+                    # require
+                    if len(albums):
+                        album, score = match_one(query_data["track"].lower(),
+                                                 albums)
+                        if score >= 0.8:
+                            self.log.debug("album matches artist")
+                            idx = albums.index(album)
+                            album_url = match["albums"][idx]["url"]
+                            match.update(BandCamper.get_stream_data(album_url))
+                            multi = True
+
+                data = self.score_match(match, phrase, multi)
+                # TODO extract playlist (pybandcamp)
+
+        elif search_type == "tag":
+            # pages do not need to be scrapped, full json data available at
+            # once
+            matches = list(BandCamper.search_tag(phrase))[
+                      :self.settings["num_results"]]
+            if len(matches):
+                match = {
+                    "playlist": [m["audio_url"]['mp3-128'] for m in matches],
+                    "tracks": matches
+                }
+                return (phrase, CPSMatchLevel.CATEGORY, match)
+        return None
+
+    def stop(self):
+        self._stop = True
 
 def create_skill():
     return BandCampSkill()
