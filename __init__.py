@@ -353,6 +353,7 @@ class BandCampSkill(CommonPlaySkill):
 
     # common play
     def CPS_extend_timeout(self, timeout=5):
+        # TODO Deprecate https://github.com/MycroftAI/mycroft-core/pull/2666/
         self.bus.emit(Message('play:query.response',
                               {"phrase": self.play_service_string,
                                "searching": True,
