@@ -368,10 +368,7 @@ class BandCampSkill(CommonPlaySkill):
         search_type, query_data = self.parse_search(original)
         self.log.debug("Bandcamp search type: " + search_type)
         phrase = self.clean_vocs(phrase)
-
-
         match = self.match_one(search_type, query_data, phrase)
-        print(match)
         if match:
             self.search_type = search_type
             self.query_data = query_data
@@ -434,91 +431,72 @@ class BandCampSkill(CommonPlaySkill):
 
     def play(self, path, utterance=None, track_data=None):
         self._stop = False
-        track_data = track_data or {}
-
-        artist = track_data.get("artist", "") or \
-                 track_data.get("band_name", "") or \
-                 track_data.get("name", "") or \
-                 track_data.get("title", "")
-        track = track_data.get("featured_track_title", "") or \
-                track_data.get("track_name", "") or track_data.get("title", "")
-        genre = track_data.get("genre", "")
-        image = track_data.get("image", "")
-        album = track_data.get("album_name", "") or \
-                track_data.get("title", "") or track_data.get("name", "")
-        self.CPS_send_status(uri=path, artist=artist, track=track, album=album,
-                             image=image,  track_length="", current_position=0,
-                             genre=genre, playlist_position=0,
-                             status=CPSTrackStatus.QUEUED_AUDIOSERVICE)
         self.CPS_play(path, utterance=utterance)
 
     def populate_disambiguation_page(self):
-        search_type = self.search_type
-        query_data = self.query_data
-        phrase = self.play_service_string
-        if search_type == "generic":
-            for match in BandCamper.search(phrase):
+        if self.search_type == "generic":
+            for match in BandCamper.search(self.play_service_string):
                 if self._stop:
                     return
-                data = self.score_match(match, phrase)
+                self.score_match(match, self.play_service_string)
 
-        elif "track" in search_type:
-            for match in BandCamper.search_tracks(phrase):
+        elif "track" in self.search_type:
+            for match in BandCamper.search_tracks(self.play_service_string):
                 if self._stop:
                     return
                 multi = False
-                if query_data.get("album"):
+                if self.query_data.get("album"):
                     # require album match
-                    score = fuzzy_match(query_data["album"].lower(),
+                    score = fuzzy_match(self.query_data["album"].lower(),
                                         match["album_name"].lower())
                     if score < 0.75:
                         continue
                     self.log.debug("album matches track")
                     multi = True
-                if query_data.get("artist"):
-                    score = fuzzy_match(query_data["artist"].lower(),
+                if self.query_data.get("artist"):
+                    score = fuzzy_match(self.query_data["artist"].lower(),
                                         match["artist"].lower())
-                    if score < 0.85 and not query_data.get("album"):
+                    if score < 0.85 and not self.query_data.get("album"):
                         # require artist match if no album match
                         continue
                     self.log.debug("artist matches track")
                     multi = True
-                data = self.score_match(match, phrase, multi)
+                self.score_match(match, self.play_service_string, multi)
 
-        elif "album" in search_type:
-            if query_data.get("album"):
+        elif "album" in self.search_type:
+            if self.query_data.get("album"):
                 # album name extracted with regex
-                query = query_data["album"]
+                query = self.query_data["album"]
             else:
-                query = phrase
+                query = self.play_service_string
 
             # TODO check requested track number
             for match in BandCamper.search_albums(query):
                 if self._stop:
                     return
                 multi = False
-                if query_data.get("artist"):
+                if self.query_data.get("artist"):
                     # require artist match
-                    score = fuzzy_match(query_data["artist"].lower(),
+                    score = fuzzy_match(self.query_data["artist"].lower(),
                                         match["artist"].lower())
                     if score < 0.85:
                         continue
                     self.log.debug("artist matches album")
                     multi = True
-                data = self.score_match(match, phrase, multi)
+                self.score_match(match, self.play_service_string, multi)
                  # TODO extract playlist (pybandcamp)
 
-        elif "artist" in search_type:
+        elif "artist" in self.search_type:
 
-            for match in BandCamper.search_artists(phrase):
+            for match in BandCamper.search_artists(self.play_service_string):
                 if self._stop:
                     return
                 multi = False
                 albums = [a["album_name"].lower() for a in match["albums"]]
-                if query_data.get("album"):
+                if self.query_data.get("album"):
                     # require album match
                     if len(albums):
-                        album, score = match_one(query_data["album"].lower(),
+                        album, score = match_one(self.query_data["album"].lower(),
                                                  albums)
                         if score < 0.8:
                             continue
@@ -529,11 +507,11 @@ class BandCampSkill(CommonPlaySkill):
                         multi = True
                     else:
                         continue
-                elif query_data.get("track"):
+                elif self.query_data.get("track"):
                     # track might also mean album, also check it but dont
                     # require
                     if len(albums):
-                        album, score = match_one(query_data["track"].lower(),
+                        album, score = match_one(self.query_data["track"].lower(),
                                                  albums)
                         if score >= 0.8:
                             self.log.debug("album matches artist")
@@ -542,21 +520,8 @@ class BandCampSkill(CommonPlaySkill):
                             match.update(BandCamper.get_stream_data(album_url))
                             multi = True
 
-                data = self.score_match(match, phrase, multi)
+                self.score_match(match, self.play_service_string, multi)
                 # TODO extract playlist (pybandcamp)
-
-        elif search_type == "tag":
-            # pages do not need to be scrapped, full json data available at
-            # once
-            matches = list(BandCamper.search_tag(phrase))[
-                      :self.settings["num_results"]]
-            if len(matches):
-                match = {
-                    "playlist": [m["audio_url"]['mp3-128'] for m in matches],
-                    "tracks": matches
-                }
-                return (phrase, CPSMatchLevel.CATEGORY, match)
-        return None
 
     def stop(self):
         self._stop = True
