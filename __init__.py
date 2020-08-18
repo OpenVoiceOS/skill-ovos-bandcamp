@@ -155,7 +155,7 @@ class BandCampSkill(CommonPlaySkill):
 
         # Get match_level and base_score
         match_level = CPSMatchLevel.GENERIC
-        score = 0.5
+        score = 0
         if match.get("name") and not match.get("artist"):
             match["artist"] = match.pop("name")
         if match["type"] == "artist":
@@ -172,58 +172,49 @@ class BandCampSkill(CommonPlaySkill):
                 score = fuzzy_match(phrase, match["album_name"])
         elif match["type"] == "tag":
             match_level = CPSMatchLevel.CATEGORY
-            score = 0.6
 
         # score modifiers
         if match.get("artist"):
-            new_score = fuzzy_match(phrase, match["artist"])
+            match_level = CPSMatchLevel.ARTIST
+            new_score = fuzzy_match(phrase, match["artist"]) - 0.15
             if new_score >= score:
-                if match["type"] != "artist":
-                    match_level = CPSMatchLevel.MULTI_KEY
-                else:
-                    match_level = CPSMatchLevel.ARTIST
                 score = new_score
             else:
-                score += new_score * 0.5
+                score += new_score * 0.05
         elif match.get("track_name"):
-            new_score = fuzzy_match(phrase, match["track_name"])
+            match_level = CPSMatchLevel.TITLE
+            new_score = fuzzy_match(phrase, match["track_name"])  - 0.15
             if new_score >= score:
-                if match["type"] != "track":
-                    match_level = CPSMatchLevel.MULTI_KEY
-                else:
-                    match_level = CPSMatchLevel.TITLE
                 score = new_score
             else:
-                score += new_score * 0.5
+                score += new_score * 0.05
         elif match.get("album_name"):
-            new_score = fuzzy_match(phrase, match["album_name"])
+            match_level = CPSMatchLevel.TITLE
+            new_score = fuzzy_match(phrase, match["album_name"])  - 0.15
             if new_score >= score:
-                if match["type"] != "album":
-                    match_level = CPSMatchLevel.MULTI_KEY
-                else:
-                    match_level = CPSMatchLevel.TITLE
                 score = new_score
             else:
-                score += new_score * 0.5
+                score += new_score * 0.05
 
         if len(match.get("tags", [])):
             for t in match["tags"]:
-                tag_score = fuzzy_match(phrase, t)
+                tag_score = fuzzy_match(phrase, t)  - 0.15
                 if tag_score > score:
                     match_level = CPSMatchLevel.CATEGORY
                     score = tag_score
                 else:
-                    score += tag_score * 0.3
+                    score += tag_score * 0.02
 
         if len(match.get("related_tags", [])):
             for tag in match["related_tags"]:
-                new_score = tag["score"]
+                new_score = tag["score"]  - 0.1
                 if new_score > score:
                     match_level = CPSMatchLevel.CATEGORY
                     score = new_score
                 else:
-                    score += new_score * 0.3
+                    score += new_score * 0.01
 
+        print(explicit, score)
         # If the confidence is high enough return an exact match
         if score >= 0.9 or explicit:
             match_level = CPSMatchLevel.EXACT
@@ -361,9 +352,10 @@ class BandCampSkill(CommonPlaySkill):
                                "skill_id": self.skill_id}))
 
     def CPS_match_query_phrase(self, phrase):  # , media_type
+        self._stop = True
         original = phrase
         self.play_service_string = original
-        self.CPS_extend_timeout(15)
+        self.CPS_extend_timeout(5)
           # webscrapping takes a while
         search_type, query_data = self.parse_search(original)
         self.log.debug("Bandcamp search type: " + search_type)
