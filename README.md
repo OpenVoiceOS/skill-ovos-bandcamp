@@ -5,8 +5,7 @@
 
 Bandcamp skill for your hipster music needs
 
-![](./screenshot.png)
-
+![](./gui.gif)
 
 ## Examples
 * "play compressorhead"
@@ -22,8 +21,6 @@ Bandcamp skill for your hipster music needs
 * "play freezing moon by mayhem"
 * "play {track} by {artist}"
 
-* "play EP by naxatras"
-* "play {album} by {artist}"
 
 ## Credits
 JarbasAl
