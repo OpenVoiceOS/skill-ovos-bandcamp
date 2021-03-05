@@ -243,11 +243,12 @@ class BandCampSkill(BetterCommonPlaySkill):
             """
 
         if isinstance(match, BandcampAlbum):
+            album_score = fuzzy_match(match.title, phrase) * 80
+
             # featured track -> best score
             if match.featured_track:
                 urls.append(match.featured_track.url)
 
-                album_score = fuzzy_match(match.title, phrase) * 80
                 score = base_score + 5 + album_score
 
                 results.append({
