@@ -18,6 +18,8 @@ class BandCampSkill(BetterCommonPlaySkill):
         self.default_image = join(dirname(__file__), "ui", "icon.png")
         self.skill_logo = join(dirname(__file__), "ui", "icon.png")
         self.skill_icon = join(dirname(__file__), "ui", "icon.png")
+        if "min_score" not in self.settings:
+            self.settings["min_score"] = 40
 
     def initialize(self):
         self._load_rx("track_album")
@@ -158,26 +160,25 @@ class BandCampSkill(BetterCommonPlaySkill):
                 results += self.bandcamp2cps(match, base_score, phrase)
                 break  # for speed
 
+        results = [r for r in results
+                   if r["match_confidence"] >= self.settings["min_score"]]
         results = sorted(results, key=lambda k: k["match_confidence"],
                          reverse=True)
         self._search_cache[phrase] = results
         return results
 
     def bandcamp2cps(self, match, base_score, phrase):
-        from pprint import pprint
-        print(match.__class__.__name__, match.data)
-        print(match.image)
-
         results = []
         urls = []
 
         if isinstance(match, BandcampArtist):
+            artist_score = fuzzy_match(match.name, phrase) * 100
+
             # featured track from featured album -> best score
             if match.featured_track:
                 urls.append(match.featured_track.url)
-                artist_score = fuzzy_match(match.name, phrase) * 80
 
-                score = base_score + 10 + artist_score
+                score = base_score + artist_score
 
                 results.append({
                 "match_confidence": min(100, score),
@@ -199,7 +200,7 @@ class BandCampSkill(BetterCommonPlaySkill):
                 if t.url in urls:
                     continue
 
-                score = base_score + 5 + artist_score - idx
+                score = base_score + artist_score - idx
                 urls.append(t.url)
 
                 results.append({
@@ -243,13 +244,15 @@ class BandCampSkill(BetterCommonPlaySkill):
             """
 
         if isinstance(match, BandcampAlbum):
-            album_score = fuzzy_match(match.title, phrase) * 80
+            album_score = fuzzy_match(match.title, phrase) * 100
+            artist_score = fuzzy_match(match.artist.name, phrase) * 80
+            album_score = max(album_score, artist_score)
 
             # featured track -> best score
             if match.featured_track:
                 urls.append(match.featured_track.url)
 
-                score = base_score + 5 + album_score
+                score = base_score + album_score
 
                 results.append({
                 "match_confidence": min(100, score),
@@ -287,8 +290,11 @@ class BandCampSkill(BetterCommonPlaySkill):
                 })
 
         if isinstance(match, BandcampTrack):
-            track_score = fuzzy_match(match.title, phrase) * 80
-            score = base_score + track_score + 5
+            track_score = fuzzy_match(match.title, phrase) * 100
+            artist_score = fuzzy_match(match.artist.name, phrase) * 80
+            track_score = max(track_score, artist_score)
+            score = base_score + track_score
+
             if match.url not in urls:
                 results.append({
                     "match_confidence": min(100, score),
