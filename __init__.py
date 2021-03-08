@@ -110,13 +110,14 @@ class BandCampSkill(BetterCommonPlaySkill):
         base_score = 0
         if media_type == CPSMatchType.MUSIC:
             base_score += 15
-            self.extend_timeout(1)
+            self.CPS_extend_timeout(1)
+        else:
+            self.CPS_extend_timeout(0.5)
 
         if self._search_cache.get(phrase):
             LOG.debug("bandcamp search cache hit! " + phrase)
             return self._search_cache[phrase]
 
-        self.extend_timeout(1)
         results = self.search(phrase, base_score)
 
         if self.voc_match(phrase, "bandcamp"):
