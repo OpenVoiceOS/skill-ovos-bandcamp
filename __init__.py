@@ -44,7 +44,7 @@ class BandCampSkill(BetterCommonPlaySkill):
     # parsing
     def _load_rx(self, regex):
         if regex not in self.regexes:
-            path = self.find_resource(regex + '.autoregex', "vocab")
+            path = self.find_resource(regex + '.autoregex', "locale")
             if path:
                 with open(path) as f:
                     rules = f.read().split("\n")
