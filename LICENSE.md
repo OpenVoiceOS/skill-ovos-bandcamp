@@ -200,12 +200,3 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
-   
-=======================================================================
-
-Component licenses for mycroft-core:
-
-The mycroft-core software references various Python Packages (via PIP),
-each of which has a separate license.  All are compatible with the
-Apache 2.0 license. See the referenced packages listed in the
-"requirements/requirements.txt" file for specific terms and conditions.

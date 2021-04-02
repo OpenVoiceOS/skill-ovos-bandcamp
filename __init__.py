@@ -1,7 +1,8 @@
 from py_bandcamp import BandCamper, BandcampAlbum, BandcampTrack, BandcampArtist
 from auto_regex import AutoRegex
-from ovos_utils.skills.templates.common_play import BetterCommonPlaySkill
-from ovos_utils.playback import CPSMatchType, CPSPlayback, CPSMatchConfidence
+from ovos_workshop.skills.common_play import BetterCommonPlaySkill
+from ovos_workshop.frameworks.cps import CPSMatchType, CPSPlayback, \
+    CPSMatchConfidence
 from os.path import join, dirname
 from mycroft.util.parse import fuzzy_match
 from ovos_utils.log import LOG
