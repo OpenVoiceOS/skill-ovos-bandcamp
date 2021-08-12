@@ -1,4 +1,4 @@
-py_bandcamp>=0.6.0
+py_bandcamp>=0.6.1
 auto_regex>=0.3.3
 requests
 ovos_utils>=0.0.12a2
