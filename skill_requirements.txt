@@ -1,1 +1,1 @@
-https://github.com/OpenVoiceOS/skill-better-playback-control
+https://github.com/OpenVoiceOS/skill-ovos-common-play
