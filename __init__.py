@@ -36,7 +36,7 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
         self.speak_dialog("searching.bandcamp", {"music": title})
         results = self.search(title)
         if len(results):
-            self.bus.emit(message.forward("better_cps.play",
+            self.bus.emit(message.forward("ovos.common_play.play",
                                           {"tracks": results,
                                            "skill_id": self.skill_id}))
         else:
@@ -103,7 +103,7 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                 "match_confidence": CommonPlayMatchConfidence.HIGH,
                 "media_type":  CPSMatchType.MUSIC,
                 "uri": "https://audioservice.or.gui.will.play.this",
-                "playback": CommonPlayPlaybackType.GUI,
+                "playback": CommonPlayPlaybackType.VIDEO,
                 "image": "http://optional.audioservice.jpg",
                 "bg_image": "http://optional.audioservice.background.jpg"
             }
