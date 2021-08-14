@@ -1,8 +1,8 @@
 from py_bandcamp import BandCamper, BandcampAlbum, BandcampTrack, BandcampArtist
 from auto_regex import AutoRegex
 from ovos_workshop.skills.common_play import OVOSCommonPlaybackSkill
-from ovos_workshop.frameworks.playback import CPSMatchType, CPSPlayback, \
-    CPSMatchConfidence
+from ovos_workshop.frameworks.playback import CommonPlayMediaType, CommonPlayPlaybackType, \
+    CommonPlayMatchConfidence
 from os.path import join, dirname
 from mycroft.util.parse import fuzzy_match
 from ovos_utils.log import LOG
@@ -13,7 +13,7 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
     def __init__(self):
         super(BandCampSkill, self).__init__()
         self.regexes = {}
-        self.supported_media = [CPSMatchType.GENERIC, CPSMatchType.MUSIC]
+        self.supported_media = [CommonPlayMediaType.GENERIC, CommonPlayMediaType.MUSIC]
         self._search_cache = {}
         self.default_bg = join(dirname(__file__), "ui", "icon.png")
         self.default_image = join(dirname(__file__), "ui", "icon.png")
@@ -95,21 +95,21 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
 
         Arguments:
             phrase (str): User phrase uttered after "Play", e.g. "some music"
-            media_type (CPSMatchType): requested CPSMatchType to search for
+            media_type (CommonPlayMediaType): requested CPSMatchType to search for
 
         Returns:
             search_results (list): list of dictionaries with result entries
             {
-                "match_confidence": CPSMatchConfidence.HIGH,
+                "match_confidence": CommonPlayMatchConfidence.HIGH,
                 "media_type":  CPSMatchType.MUSIC,
                 "uri": "https://audioservice.or.gui.will.play.this",
-                "playback": CPSPlayback.GUI,
+                "playback": CommonPlayPlaybackType.GUI,
                 "image": "http://optional.audioservice.jpg",
                 "bg_image": "http://optional.audioservice.background.jpg"
             }
         """
         base_score = 0
-        if media_type == CPSMatchType.MUSIC:
+        if media_type == CommonPlayMediaType.MUSIC:
             base_score += 15
             self.CPS_extend_timeout(1)
         else:
@@ -184,9 +184,9 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
 
                 results.append({
                 "match_confidence": min(100, score),
-                "media_type": CPSMatchType.MUSIC,
+                "media_type": CommonPlayMediaType.MUSIC,
                 "uri": match.featured_track.stream,
-                "playback": CPSPlayback.AUDIO,
+                "playback": CommonPlayPlaybackType.AUDIO,
                 "image": match.image,
                 "bg_image": match.image,
                 "skill_icon": self.skill_icon,
@@ -207,9 +207,9 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
 
                 results.append({
                     "match_confidence": min(100, score),
-                    "media_type": CPSMatchType.MUSIC,
+                    "media_type": CommonPlayMediaType.MUSIC,
                     "uri": t.stream,
-                    "playback": CPSPlayback.AUDIO,
+                    "playback": CommonPlayPlaybackType.AUDIO,
                     "image": match.image,
                     "bg_image": match.image,
                     "skill_icon": self.skill_icon,
@@ -231,9 +231,9 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                     urls.append(t.url)
                     results.append({
                         "match_confidence": min(100, score + 5),
-                        "media_type": CPSMatchType.MUSIC,
+                        "media_type": CommonPlayMediaType.MUSIC,
                         "uri": t.stream,
-                        "playback": CPSPlayback.AUDIO,
+                        "playback": CommonPlayPlaybackType.AUDIO,
                         "image": match.image,
                         "bg_image": match.image,
                         "skill_icon": self.skill_icon,
@@ -258,9 +258,9 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
 
                 results.append({
                 "match_confidence": min(100, score),
-                "media_type": CPSMatchType.MUSIC,
+                "media_type": CommonPlayMediaType.MUSIC,
                 "uri": match.featured_track.stream,
-                "playback": CPSPlayback.AUDIO,
+                "playback": CommonPlayPlaybackType.AUDIO,
                 "image": match.image,
                 "bg_image": match.image,
                 "skill_icon": self.skill_icon,
@@ -278,9 +278,9 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                 score = base_score + album_score - idx
                 results.append({
                     "match_confidence": min(100, score),
-                    "media_type": CPSMatchType.MUSIC,
+                    "media_type": CommonPlayMediaType.MUSIC,
                     "uri": t.stream,
-                    "playback": CPSPlayback.AUDIO,
+                    "playback": CommonPlayPlaybackType.AUDIO,
                     "image": match.image,
                     "bg_image": match.image,
                     "skill_icon": self.skill_icon,
@@ -300,9 +300,9 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
             if match.url not in urls:
                 results.append({
                     "match_confidence": min(100, score),
-                    "media_type": CPSMatchType.MUSIC,
+                    "media_type": CommonPlayMediaType.MUSIC,
                     "uri": match.stream,
-                    "playback": CPSPlayback.AUDIO,
+                    "playback": CommonPlayPlaybackType.AUDIO,
                     "image": match.image,
                     "bg_image": match.image,
                     "skill_icon": self.skill_icon,
