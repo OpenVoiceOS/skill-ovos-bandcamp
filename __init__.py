@@ -13,7 +13,8 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
     def __init__(self):
         super(BandCampSkill, self).__init__()
         self.regexes = {}
-        self.supported_media = [CommonPlayMediaType.GENERIC, CommonPlayMediaType.MUSIC]
+        self.supported_media = [CommonPlayMediaType.GENERIC,
+                                CommonPlayMediaType.MUSIC]
         self._search_cache = {}
         self.default_bg = join(dirname(__file__), "ui", "icon.png")
         self.default_image = join(dirname(__file__), "ui", "icon.png")
