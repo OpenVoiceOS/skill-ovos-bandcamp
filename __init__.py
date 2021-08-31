@@ -1,12 +1,13 @@
-from py_bandcamp import BandCamper, BandcampAlbum, BandcampTrack, BandcampArtist
-from auto_regex import AutoRegex
-from ovos_workshop.skills.common_play import OVOSCommonPlaybackSkill
-from ovos_workshop.frameworks.playback import CommonPlayMediaType, CommonPlayPlaybackType, \
-    CommonPlayMatchConfidence
 from os.path import join, dirname
+
 from mycroft.util.parse import fuzzy_match
-from ovos_utils.log import LOG
-from mycroft.skills.core import intent_file_handler
+from ovos_utils.parse import fuzzy_match
+from ovos_workshop.frameworks.playback import CommonPlayMediaType, \
+    CommonPlayPlaybackType
+from ovos_workshop.skills.common_play import OVOSCommonPlaybackSkill, \
+    common_play_search
+from py_bandcamp import BandCamper, BandcampAlbum, BandcampTrack, \
+    BandcampArtist
 
 
 class BandCampSkill(OVOSCommonPlaybackSkill):
@@ -23,283 +24,207 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
         if "min_score" not in self.settings:
             self.settings["min_score"] = 40
 
-    def initialize(self):
-        self._load_rx("track_album")
-        self._load_rx("track_artist")
-        self._load_rx("track_album_artist")
-        self._load_rx("n_album")  # track number N from {album}
-
-    @intent_file_handler("bandcamp.intent")
-    def handle_search_bandcamp_intent(self, message):
-        """ handles bandcamp searches that dont start with "play" which
-        means they would miss the CommonPlay framework invocation """
-        title = message.data.get("music")
-        self.speak_dialog("searching.bandcamp", {"music": title})
-        results = self.search(title)
-        if len(results):
-            self.bus.emit(message.forward("ovos.common_play.play",
-                                          {"tracks": results,
-                                           "skill_id": self.skill_id}))
-        else:
-            self.speak_dialog("play.error")
-
-    # parsing
-    def _load_rx(self, regex):
-        if regex not in self.regexes:
-            path = self.find_resource(regex + '.autoregex', "locale")
-            if path:
-                with open(path) as f:
-                    rules = f.read().split("\n")
-                self.regexes[regex] = [r for r in rules if r.strip()]
-        return self.regexes[regex]
-
-    def parse_search(self, original):
-        """
-        parse query type, this logic is more or less provider agnostic
-        """
-        search_type = "generic"
-        if self.voc_match(original, "artist"):
-            search_type = "artist"
-        elif self.voc_match(original, "track"):
-            search_type = "track"
-        elif self.voc_match(original, "album"):
-            search_type = "album"
-        elif self.voc_match(original, "tag"):
-            # validate tag
-            tag = original.replace(" ", "-").lower().strip()
-            if tag in BandCamper.tags():
-                search_type = "tag"
-        elif self.voc_match(original, "tag_names"):
-            # validate tag
-            tag = original.replace(" ", "-").lower().strip()
-            if tag in BandCamper.tags():
-                search_type = "tag"
-
-        # autoregex rules
-        data = {}
-        for r in self.regexes:
-            rx = AutoRegex()
-            rx.add_rules(self.regexes[r])
-            matches = list(rx.extract(original))
-            if len(matches):
-                search_type = r
-                if search_type == "n_album":
-                    pass  # TODO extract number
-                data = {"query": matches[0]["track"]}
-                data.update(matches[0])
-
-        return search_type, data
-
     # common play
-    def CPS_search(self, phrase, media_type):
-        """Analyze phrase to see if it is a play-able phrase with this skill.
-
-        Arguments:
-            phrase (str): User phrase uttered after "Play", e.g. "some music"
-            media_type (CommonPlayMediaType): requested CPSMatchType to search for
-
-        Returns:
-            search_results (list): list of dictionaries with result entries
-            {
-                "match_confidence": CommonPlayMatchConfidence.HIGH,
-                "media_type":  CPSMatchType.MUSIC,
-                "uri": "https://audioservice.or.gui.will.play.this",
-                "playback": CommonPlayPlaybackType.VIDEO,
-                "image": "http://optional.audioservice.jpg",
-                "bg_image": "http://optional.audioservice.background.jpg"
-            }
-        """
+    @common_play_search()
+    def search_bandcamp_artist(self, phrase,
+                               media_type=CommonPlayMediaType.GENERIC):
         base_score = 0
+        if self.voc_match(phrase, "bandcamp"):
+            base_score = 30
         if media_type == CommonPlayMediaType.MUSIC:
             base_score += 15
-            self.CPS_extend_timeout(1)
-        else:
-            self.CPS_extend_timeout(0.5)
-
-        if self._search_cache.get(phrase):
-            LOG.debug("bandcamp search cache hit! " + phrase)
-            return self._search_cache[phrase]
-
-        results = self.search(phrase, base_score)
-
-        if self.voc_match(phrase, "bandcamp"):
-            # bandcamp explicitly requested, give max score, but keep
-            # confidence order
-            for idx, r in enumerate(results):
-                results[idx]["match_confidence"] = 100 - idx
-
-        return results
-
-    def search(self, phrase, base_score=0):
         phrase = self.remove_voc(phrase, "bandcamp")
 
-        search_type, query_data = self.parse_search(phrase)
-        LOG.debug("Bandcamp search type: " + search_type)
-
-        results = []
-        if search_type == "generic":
-            for match in BandCamper.search(phrase):
-                results += self.bandcamp2cps(match, base_score, phrase)
-                break  # for speed
-
-        elif "track" in search_type:
-            for match in BandCamper.search_tracks(phrase):
-                results += self.bandcamp2cps(match, base_score, phrase)
-                break  # for speed
-
-        elif "album" in search_type:
-            if query_data.get("album"):
-                # album name extracted with regex
-                query = query_data["album"]
-            else:
-                query = phrase
-
-            for match in BandCamper.search_albums(query):
-                results += self.bandcamp2cps(match, base_score, phrase)
-                break  # for speed
-
-        elif "artist" in search_type:
+        try:
+            # TODO common play support to return full playlists
+            #  - artist top tracks
+            # 1 artist only, best tracks are individual results
             for match in BandCamper.search_artists(phrase):
-                results += self.bandcamp2cps(match, base_score, phrase)
-                break  # for speed
+                return list(self.bandcamp2cps(match, base_score, phrase))
+        except:
+            pass
+        return []
 
-        results = [r for r in results
-                   if r["match_confidence"] >= self.settings["min_score"]]
-        results = sorted(results, key=lambda k: k["match_confidence"],
-                         reverse=True)
-        self._search_cache[phrase] = results
-        return results
+    @common_play_search()
+    def search_bandcamp_tracks(self, phrase,
+                               media_type=CommonPlayMediaType.GENERIC):
+        base_score = 0
+        if self.voc_match(phrase, "bandcamp"):
+            base_score = 20
+        if media_type == CommonPlayMediaType.MUSIC:
+            base_score += 10
+        phrase = self.remove_voc(phrase, "bandcamp")
+
+        try:
+            for match in BandCamper.search_tracks(phrase):
+                return list(self.bandcamp2cps(match, base_score, phrase))
+        except:
+            pass
+        return []
+
+    @common_play_search()
+    def search_bandcamp_album(self, phrase,
+                              media_type=CommonPlayMediaType.GENERIC):
+        base_score = 0
+        if self.voc_match(phrase, "bandcamp"):
+            base_score = 30
+        if media_type == CommonPlayMediaType.MUSIC:
+            base_score += 20
+        phrase = self.remove_voc(phrase, "bandcamp")
+
+        try:
+            # TODO common play support to return full playlists
+            #  - full album
+            # 1 album only, tracks are individual results
+            for match in BandCamper.search_albums(phrase):
+                return list(self.bandcamp2cps(match, base_score, phrase))
+        except:
+            pass
+        return []
 
     def bandcamp2cps(self, match, base_score, phrase):
-        results = []
         urls = []
 
         if isinstance(match, BandcampArtist):
             artist_score = fuzzy_match(match.name, phrase) * 100
+            score = base_score + artist_score
 
-            # featured track from featured album -> best score
+            # featured track from featured album -> high confidence
             if match.featured_track:
-                urls.append(match.featured_track.url)
-
-                score = base_score + artist_score
-
-                results.append({
-                "match_confidence": min(100, score),
-                "media_type": CommonPlayMediaType.MUSIC,
-                "uri": match.featured_track.stream,
-                "playback": CommonPlayPlaybackType.AUDIO,
-                "image": match.image,
-                "bg_image": match.image,
-                "skill_icon": self.skill_icon,
-                "skill_logo": self.skill_logo,
-                "title": match.featured_track.title,
-                "skill_id": self.skill_id
-                #"author": match.name,
-                #"album": match.album.title if match.album else ""
-            })
-
-            # featured album tracks -> second best score
-            for idx, t in enumerate(match.featured_album.tracks):
-                if t.url in urls:
-                    continue
-
-                score = base_score + artist_score - idx
-                urls.append(t.url)
-
-                results.append({
+                track = match.featured_track
+                urls.append(track.url)
+                yield {
                     "match_confidence": min(100, score),
                     "media_type": CommonPlayMediaType.MUSIC,
-                    "uri": t.stream,
+                    "uri": track.stream,
                     "playback": CommonPlayPlaybackType.AUDIO,
-                    "image": match.image,
+                    "image": track.image or match.image,
                     "bg_image": match.image,
                     "skill_icon": self.skill_icon,
                     "skill_logo": self.skill_logo,
-                    "title": t.title,
+                    "title": track.title,
                     "skill_id": self.skill_id
-                    #"author": t.artist.name,
-                    #"album": t.album.title if match.album else ""
-                })
+                    # "author": match.name,
+                    # "album": match.album.title if match.album else ""
+                }
+            if match.featured_album:
+                track = match.featured_album.featured_track
+                urls.append(track.url)
+                yield {
+                    "match_confidence": min(100, score),
+                    "media_type": CommonPlayMediaType.MUSIC,
+                    "uri": track.stream,
+                    "playback": CommonPlayPlaybackType.AUDIO,
+                    "image": track.image or match.image,
+                    "bg_image": match.image,
+                    "skill_icon": self.skill_icon,
+                    "skill_logo": self.skill_logo,
+                    "title": track.title,
+                    "skill_id": self.skill_id
+                    # "author": t.artist.name,
+                    # "album": album.title if match.album else ""
+                }
 
-            # all albums tracks -> third best score
-            """
+            # featured album tracks -> medium confidence
+            for idx, track in enumerate(match.featured_album.tracks):
+                if track.url in urls:
+                    continue
+                score = base_score + artist_score - idx * 5
+                urls.append(track.url)
+                yield {
+                    "match_confidence": min(100, score),
+                    "media_type": CommonPlayMediaType.MUSIC,
+                    "uri": track.stream,
+                    "playback": CommonPlayPlaybackType.AUDIO,
+                    "image": track.image or match.image,
+                    "bg_image": match.image,
+                    "skill_icon": self.skill_icon,
+                    "skill_logo": self.skill_logo,
+                    "title": track.title,
+                    "skill_id": self.skill_id
+                    # "author": t.artist.name,
+                    # "album": t.album.title if match.album else ""
+                }
+
+            # all albums tracks -> low conf
             for idx, album in enumerate(match.albums):
-                for idx2, t in enumerate(album.tracks):
-                    if t.url in urls:
+                for idx2, track in enumerate(album.tracks):
+                    if track.url in urls:
                         continue
-                    score = base_score + 2 + artist_score - idx - idx2
-                    
-                    urls.append(t.url)
-                    results.append({
-                        "match_confidence": min(100, score + 5),
+                    score = base_score + 2 + artist_score - idx - idx2 * 10
+
+                    urls.append(track.url)
+                    yield {
+                        "match_confidence": min(100, score - 5),
                         "media_type": CommonPlayMediaType.MUSIC,
-                        "uri": t.stream,
+                        "uri": track.stream,
                         "playback": CommonPlayPlaybackType.AUDIO,
-                        "image": match.image,
+                        "image": track.image or match.image,
                         "bg_image": match.image,
                         "skill_icon": self.skill_icon,
                         "skill_logo": self.skill_logo,
-                        "title": t.title,
+                        "title": track.title,
                         "skill_id": self.skill_id
                         #"author": t.artist.name,
                         #"album": album.title if match.album else ""
-                    })
-            """
+                    }
 
         if isinstance(match, BandcampAlbum):
+            # TODO common play support to return full playlists instead of
+            #  individual tracks
             album_score = fuzzy_match(match.title, phrase) * 100
             artist_score = fuzzy_match(match.artist.name, phrase) * 80
             album_score = max(album_score, artist_score)
 
-            # featured track -> best score
+            # featured track -> very high confidence
             if match.featured_track:
                 urls.append(match.featured_track.url)
 
                 score = base_score + album_score
 
-                results.append({
-                "match_confidence": min(100, score),
-                "media_type": CommonPlayMediaType.MUSIC,
-                "uri": match.featured_track.stream,
-                "playback": CommonPlayPlaybackType.AUDIO,
-                "image": match.image,
-                "bg_image": match.image,
-                "skill_icon": self.skill_icon,
-                "skill_logo": self.skill_logo,
-                "title": match.featured_track.title,
-                "skill_id": self.skill_id
-               # "author": match.artist.name,
-               # "album": match.title
-            })
-
-            # all albums tracks -> secondbest score
-            for idx, t in enumerate(match.tracks):
-                if t.url in urls:
-                    continue
-                score = base_score + album_score - idx
-                results.append({
+                yield {
                     "match_confidence": min(100, score),
                     "media_type": CommonPlayMediaType.MUSIC,
-                    "uri": t.stream,
+                    "uri": match.featured_track.stream,
                     "playback": CommonPlayPlaybackType.AUDIO,
                     "image": match.image,
                     "bg_image": match.image,
                     "skill_icon": self.skill_icon,
                     "skill_logo": self.skill_logo,
-                    "title": t.title,
+                    "title": match.featured_track.title,
                     "skill_id": self.skill_id
-                    #"author": match.artist.name,
-                    #"album": match.title
-                })
+                    # "author": match.artist.name,
+                    # "album": match.title
+                }
+
+            # all albums tracks -> high confidence
+            for idx, track in enumerate(match.tracks):
+                if track.url in urls:
+                    continue
+                score = base_score + album_score - idx
+                yield {
+                    "match_confidence": min(100, score),
+                    "media_type": CommonPlayMediaType.MUSIC,
+                    "uri": track.stream,
+                    "playback": CommonPlayPlaybackType.AUDIO,
+                    "image": match.image,
+                    "bg_image": match.image,
+                    "skill_icon": self.skill_icon,
+                    "skill_logo": self.skill_logo,
+                    "title": track.title,
+                    "skill_id": self.skill_id
+                    # "author": match.artist.name,
+                    # "album": match.title
+                }
 
         if isinstance(match, BandcampTrack):
-            track_score = fuzzy_match(match.title, phrase) * 100
-            artist_score = fuzzy_match(match.artist.name, phrase) * 80
+            track_score = fuzzy_match(match.title, phrase) * 80
+            artist_score = fuzzy_match(match.artist.name, phrase) * 100
             track_score = max(track_score, artist_score)
             score = base_score + track_score
 
             if match.url not in urls:
-                results.append({
+                yield {
                     "match_confidence": min(100, score),
                     "media_type": CommonPlayMediaType.MUSIC,
                     "uri": match.stream,
@@ -310,11 +235,9 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                     "skill_logo": self.skill_logo,
                     "title": match.title,
                     "skill_id": self.skill_id
-                    #"author": match.artist.name,
-                    #"album": match.album.title if match.album else {}
-                })
-
-        return results
+                    # "author": match.artist.name,
+                    # "album": match.album.title if match.album else {}
+                }
 
 
 def create_skill():
