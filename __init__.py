@@ -38,12 +38,15 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
         try:
             # TODO common play support to return full playlists
             #  - artist top tracks
-            # 1 artist only, best tracks are individual results
+            n = 1  # 1 artist only, best tracks are individual results
             for match in BandCamper.search_artists(phrase):
-                return list(self.bandcamp2cps(match, base_score, phrase))
+                n -= 1
+                for res in self.bandcamp2cps(match, base_score, phrase):
+                    yield res
+                if n <= 0:
+                    break
         except:
             pass
-        return []
 
     @common_play_search()
     def search_bandcamp_tracks(self, phrase,
@@ -56,11 +59,15 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
         phrase = self.remove_voc(phrase, "bandcamp")
 
         try:
+            n = 3
             for match in BandCamper.search_tracks(phrase):
-                return list(self.bandcamp2cps(match, base_score, phrase))
+                n -= 1
+                for res in self.bandcamp2cps(match, base_score, phrase):
+                    yield res
+                if n <= 0:
+                    break
         except:
             pass
-        return []
 
     @common_play_search()
     def search_bandcamp_album(self, phrase,
@@ -75,12 +82,15 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
         try:
             # TODO common play support to return full playlists
             #  - full album
-            # 1 album only, tracks are individual results
+            n = 1  # 1 album only, tracks are individual results
             for match in BandCamper.search_albums(phrase):
-                return list(self.bandcamp2cps(match, base_score, phrase))
+                n -= 1
+                for res in self.bandcamp2cps(match, base_score, phrase):
+                    yield res
+                if n <= 0:
+                    break
         except:
             pass
-        return []
 
     def bandcamp2cps(self, match, base_score, phrase):
         urls = []
@@ -90,8 +100,8 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
             score = base_score + artist_score
 
             # featured track from featured album -> high confidence
-            if match.featured_track:
-                track = match.featured_track
+            track = match.featured_track
+            if track:
                 urls.append(track.url)
                 yield {
                     "match_confidence": min(100, score),
@@ -107,37 +117,45 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                     # "author": match.name,
                     # "album": match.album.title if match.album else ""
                 }
+            # todo once playlists are supported return album as single
+            #  result and reenable this single track result
+            """
             if match.featured_album:
                 track = match.featured_album.featured_track
-                urls.append(track.url)
-                yield {
-                    "match_confidence": min(100, score),
-                    "media_type": CommonPlayMediaType.MUSIC,
-                    "uri": track.stream,
-                    "playback": CommonPlayPlaybackType.AUDIO,
-                    "image": track.image or match.image,
-                    "bg_image": match.image,
-                    "skill_icon": self.skill_icon,
-                    "skill_logo": self.skill_logo,
-                    "title": track.title,
-                    "skill_id": self.skill_id
-                    # "author": t.artist.name,
-                    # "album": album.title if match.album else ""
-                }
+                if track.url not in urls:
+                    urls.append(track.url)
+                    yield {
+                        "match_confidence": min(100, score),
+                        "media_type": CommonPlayMediaType.MUSIC,
+                        "uri": track.stream,
+                        "playback": CommonPlayPlaybackType.AUDIO,
+                        "image": track.image or match.image,
+                        "bg_image": match.image,
+                        "skill_icon": self.skill_icon,
+                        "skill_logo": self.skill_logo,
+                        "title": track.title,
+                        "skill_id": self.skill_id
+                        # "author": t.artist.name,
+                        # "album": album.title if match.album else ""
+                    }
+            """
 
+            # todo once playlists are supported return album as single result
             # featured album tracks -> medium confidence
-            for idx, track in enumerate(match.featured_album.tracks):
+            # NOTE: this is faster than parsing than parsing all albums below
+            album = match.featured_album
+            for idx, track in enumerate(album.tracks):
                 if track.url in urls:
                     continue
-                score = base_score + artist_score - idx * 5
+                score -= idx  # to preserve ordering
                 urls.append(track.url)
                 yield {
                     "match_confidence": min(100, score),
                     "media_type": CommonPlayMediaType.MUSIC,
                     "uri": track.stream,
                     "playback": CommonPlayPlaybackType.AUDIO,
-                    "image": track.image or match.image,
-                    "bg_image": match.image,
+                    "image": track.image or album.image or match.image,
+                    "bg_image": album.image or match.image,
                     "skill_icon": self.skill_icon,
                     "skill_logo": self.skill_logo,
                     "title": track.title,
@@ -146,21 +164,22 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                     # "album": t.album.title if match.album else ""
                 }
 
+            # todo once playlists are supported return albums as single results
             # all albums tracks -> low conf
             for idx, album in enumerate(match.albums):
+                score -= idx # to preserve ordering
                 for idx2, track in enumerate(album.tracks):
                     if track.url in urls:
                         continue
-                    score = base_score + 2 + artist_score - idx - idx2 * 10
-
+                    score -= idx2  # to preserve ordering
                     urls.append(track.url)
                     yield {
-                        "match_confidence": min(100, score - 5),
+                        "match_confidence": min(100, score),
                         "media_type": CommonPlayMediaType.MUSIC,
                         "uri": track.stream,
                         "playback": CommonPlayPlaybackType.AUDIO,
-                        "image": track.image or match.image,
-                        "bg_image": match.image,
+                        "image": track.image or album.image or match.image,
+                        "bg_image": album.image or match.image,
                         "skill_icon": self.skill_icon,
                         "skill_logo": self.skill_logo,
                         "title": track.title,
@@ -198,6 +217,7 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                 }
 
             # all albums tracks -> high confidence
+            # todo once playlists are supported return album as single result
             for idx, track in enumerate(match.tracks):
                 if track.url in urls:
                     continue
