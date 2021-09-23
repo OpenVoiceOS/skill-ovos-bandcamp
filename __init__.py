@@ -2,21 +2,23 @@ from os.path import join, dirname
 
 from mycroft.util.parse import fuzzy_match
 from ovos_utils.parse import fuzzy_match
-from ovos_workshop.frameworks.playback import CommonPlayMediaType, \
-    CommonPlayPlaybackType
+from ovos_workshop.frameworks.playback import MediaType, \
+    PlaybackType
 from ovos_workshop.skills.common_play import OVOSCommonPlaybackSkill, \
     common_play_search
 from py_bandcamp import BandCamper, BandcampAlbum, BandcampTrack, \
     BandcampArtist
+from json_database import JsonStorageXDG
 
 
 class BandCampSkill(OVOSCommonPlaybackSkill):
     def __init__(self):
         super(BandCampSkill, self).__init__()
         self.regexes = {}
-        self.supported_media = [CommonPlayMediaType.GENERIC,
-                                CommonPlayMediaType.MUSIC]
-        self._search_cache = {}
+        self.supported_media = [MediaType.GENERIC,
+                                MediaType.MUSIC]
+        self._search_cache = JsonStorageXDG("bandcamp.search.history",
+                                            subfolder="common_play")
         self.default_bg = join(dirname(__file__), "ui", "icon.png")
         self.default_image = join(dirname(__file__), "ui", "icon.png")
         self.skill_logo = join(dirname(__file__), "ui", "icon.png")
@@ -27,15 +29,25 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
     # common play
     @common_play_search()
     def search_bandcamp_artist(self, phrase,
-                               media_type=CommonPlayMediaType.GENERIC):
+                               media_type=MediaType.GENERIC):
         base_score = 0
         if self.voc_match(phrase, "bandcamp"):
             base_score = 30
-        if media_type == CommonPlayMediaType.MUSIC:
+        if media_type == MediaType.MUSIC:
             base_score += 15
         phrase = self.remove_voc(phrase, "bandcamp")
 
         try:
+            if "artists" not in self._search_cache:
+                self._search_cache["artists"] = {}
+            if phrase not in self._search_cache["artists"]:
+                self._search_cache["artists"][phrase] = []
+            else:
+                # cache hit!
+                for r in self._search_cache["artists"][phrase]:
+                    yield r
+                return
+
             # TODO common play support to return full playlists
             #  - artist top tracks
             n = 1  # 1 artist only, best tracks are individual results
@@ -43,43 +55,69 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                 n -= 1
                 for res in self.bandcamp2cps(match, base_score, phrase):
                     yield res
+                    if res["match_confidence"] > 0:
+                        self._search_cache["artists"][phrase].append(res)
                 if n <= 0:
                     break
+            self._search_cache.store()
         except:
             pass
 
     @common_play_search()
     def search_bandcamp_tracks(self, phrase,
-                               media_type=CommonPlayMediaType.GENERIC):
+                               media_type=MediaType.GENERIC):
         base_score = 0
         if self.voc_match(phrase, "bandcamp"):
             base_score = 20
-        if media_type == CommonPlayMediaType.MUSIC:
+        if media_type == MediaType.MUSIC:
             base_score += 10
         phrase = self.remove_voc(phrase, "bandcamp")
 
         try:
+            if "tracks" not in self._search_cache:
+                self._search_cache["tracks"] = {}
+            if phrase not in self._search_cache["tracks"]:
+                self._search_cache["tracks"][phrase] = []
+            else:
+                # cache hit!
+                for r in self._search_cache["tracks"][phrase]:
+                    yield r
+                return
+
             n = 3
             for match in BandCamper.search_tracks(phrase):
                 n -= 1
                 for res in self.bandcamp2cps(match, base_score, phrase):
                     yield res
+                    if res["match_confidence"] > 0:
+                        self._search_cache["tracks"][phrase].append(res)
                 if n <= 0:
                     break
+            self._search_cache.store()
         except:
             pass
 
     @common_play_search()
     def search_bandcamp_album(self, phrase,
-                              media_type=CommonPlayMediaType.GENERIC):
+                              media_type=MediaType.GENERIC):
         base_score = 0
         if self.voc_match(phrase, "bandcamp"):
             base_score = 30
-        if media_type == CommonPlayMediaType.MUSIC:
+        if media_type == MediaType.MUSIC:
             base_score += 20
         phrase = self.remove_voc(phrase, "bandcamp")
 
         try:
+            if "albums" not in self._search_cache:
+                self._search_cache["albums"][phrase] = {}
+            if phrase not in self._search_cache["albums"][phrase]:
+                self._search_cache["albums"][phrase][phrase] = []
+            else:
+                # cache hit!
+                for r in self._search_cache["albums"][phrase]:
+                    yield r
+                return
+
             # TODO common play support to return full playlists
             #  - full album
             n = 1  # 1 album only, tracks are individual results
@@ -87,8 +125,11 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                 n -= 1
                 for res in self.bandcamp2cps(match, base_score, phrase):
                     yield res
+                    if res["match_confidence"] > 0:
+                        self._search_cache["albums"][phrase].append(res)
                 if n <= 0:
                     break
+            self._search_cache.store()
         except:
             pass
 
@@ -96,7 +137,8 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
         urls = []
 
         if isinstance(match, BandcampArtist):
-            artist_score = fuzzy_match(match.name, phrase) * 100
+            artist_name = match.name
+            artist_score = fuzzy_match(artist_name, phrase) * 100
             score = base_score + artist_score
 
             # featured track from featured album -> high confidence
@@ -105,14 +147,15 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                 urls.append(track.url)
                 yield {
                     "match_confidence": min(100, score),
-                    "media_type": CommonPlayMediaType.MUSIC,
+                    "media_type": MediaType.MUSIC,
                     "uri": track.stream,
-                    "playback": CommonPlayPlaybackType.AUDIO,
+                    "playback": PlaybackType.AUDIO,
                     "image": track.image or match.image,
                     "bg_image": match.image,
                     "skill_icon": self.skill_icon,
                     "skill_logo": self.skill_logo,
                     "title": track.title,
+                    "artist": artist_name,
                     "skill_id": self.skill_id
                     # "author": match.name,
                     # "album": match.album.title if match.album else ""
@@ -126,9 +169,9 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                     urls.append(track.url)
                     yield {
                         "match_confidence": min(100, score),
-                        "media_type": CommonPlayMediaType.MUSIC,
+                        "media_type": MediaType.MUSIC,
                         "uri": track.stream,
-                        "playback": CommonPlayPlaybackType.AUDIO,
+                        "playback": PlaybackType.AUDIO,
                         "image": track.image or match.image,
                         "bg_image": match.image,
                         "skill_icon": self.skill_icon,
@@ -151,14 +194,15 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                 urls.append(track.url)
                 yield {
                     "match_confidence": min(100, score),
-                    "media_type": CommonPlayMediaType.MUSIC,
+                    "media_type": MediaType.MUSIC,
                     "uri": track.stream,
-                    "playback": CommonPlayPlaybackType.AUDIO,
+                    "playback": PlaybackType.AUDIO,
                     "image": track.image or album.image or match.image,
                     "bg_image": album.image or match.image,
                     "skill_icon": self.skill_icon,
                     "skill_logo": self.skill_logo,
                     "title": track.title,
+                    "artist": artist_name,
                     "skill_id": self.skill_id
                     # "author": t.artist.name,
                     # "album": t.album.title if match.album else ""
@@ -175,9 +219,9 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                     urls.append(track.url)
                     yield {
                         "match_confidence": min(100, score),
-                        "media_type": CommonPlayMediaType.MUSIC,
+                        "media_type": MediaType.MUSIC,
                         "uri": track.stream,
-                        "playback": CommonPlayPlaybackType.AUDIO,
+                        "playback": PlaybackType.AUDIO,
                         "image": track.image or album.image or match.image,
                         "bg_image": album.image or match.image,
                         "skill_icon": self.skill_icon,
@@ -191,8 +235,9 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
         if isinstance(match, BandcampAlbum):
             # TODO common play support to return full playlists instead of
             #  individual tracks
+            artist_name = match.artist.name
             album_score = fuzzy_match(match.title, phrase) * 100
-            artist_score = fuzzy_match(match.artist.name, phrase) * 80
+            artist_score = fuzzy_match(artist_name, phrase) * 80
             album_score = max(album_score, artist_score)
 
             # featured track -> very high confidence
@@ -203,11 +248,12 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
 
                 yield {
                     "match_confidence": min(100, score),
-                    "media_type": CommonPlayMediaType.MUSIC,
+                    "media_type": MediaType.MUSIC,
                     "uri": match.featured_track.stream,
-                    "playback": CommonPlayPlaybackType.AUDIO,
+                    "playback": PlaybackType.AUDIO,
                     "image": match.image,
                     "bg_image": match.image,
+                    "artist": artist_name,
                     "skill_icon": self.skill_icon,
                     "skill_logo": self.skill_logo,
                     "title": match.featured_track.title,
@@ -224,36 +270,39 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                 score = base_score + album_score - idx
                 yield {
                     "match_confidence": min(100, score),
-                    "media_type": CommonPlayMediaType.MUSIC,
+                    "media_type": MediaType.MUSIC,
                     "uri": track.stream,
-                    "playback": CommonPlayPlaybackType.AUDIO,
+                    "playback": PlaybackType.AUDIO,
                     "image": match.image,
                     "bg_image": match.image,
                     "skill_icon": self.skill_icon,
                     "skill_logo": self.skill_logo,
                     "title": track.title,
+                    "artist": artist_name,
                     "skill_id": self.skill_id
                     # "author": match.artist.name,
                     # "album": match.title
                 }
 
         if isinstance(match, BandcampTrack):
+            artist_name = match.artist.name
             track_score = fuzzy_match(match.title, phrase) * 80
-            artist_score = fuzzy_match(match.artist.name, phrase) * 100
+            artist_score = fuzzy_match(artist_name, phrase) * 100
             track_score = max(track_score, artist_score)
             score = base_score + track_score
 
             if match.url not in urls:
                 yield {
                     "match_confidence": min(100, score),
-                    "media_type": CommonPlayMediaType.MUSIC,
+                    "media_type": MediaType.MUSIC,
                     "uri": match.stream,
-                    "playback": CommonPlayPlaybackType.AUDIO,
+                    "playback": PlaybackType.AUDIO,
                     "image": match.image,
                     "bg_image": match.image,
                     "skill_icon": self.skill_icon,
                     "skill_logo": self.skill_logo,
                     "title": match.title,
+                    "artist": artist_name,
                     "skill_id": self.skill_id
                     # "author": match.artist.name,
                     # "album": match.album.title if match.album else {}
