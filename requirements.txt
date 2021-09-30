@@ -1,6 +1,5 @@
 py_bandcamp>=0.6.1
 auto_regex>=0.3.3
 requests
-ovos_utils>=0.0.12a2
-ovos_workshop>=0.0.4a15
+ovos_workshop>=0.0.5a1
 rapidfuzz
