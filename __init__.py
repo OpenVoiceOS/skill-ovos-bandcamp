@@ -21,7 +21,6 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                                             subfolder="common_play")
         self.default_bg = join(dirname(__file__), "ui", "icon.png")
         self.default_image = join(dirname(__file__), "ui", "icon.png")
-        self.skill_logo = join(dirname(__file__), "ui", "icon.png")
         self.skill_icon = join(dirname(__file__), "ui", "icon.png")
         if "min_score" not in self.settings:
             self.settings["min_score"] = 40
@@ -164,7 +163,6 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                     "image": track.image or match.image,
                     "bg_image": match.image,
                     "skill_icon": self.skill_icon,
-                    "skill_logo": self.skill_logo,
                     "title": track.title,
                     "artist": artist_name,
                     "skill_id": self.skill_id
@@ -211,7 +209,6 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                     "image": track.image or album.image or match.image,
                     "bg_image": album.image or match.image,
                     "skill_icon": self.skill_icon,
-                    "skill_logo": self.skill_logo,
                     "title": track.title,
                     "artist": artist_name,
                     "skill_id": self.skill_id
@@ -236,7 +233,6 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                         "image": track.image or album.image or match.image,
                         "bg_image": album.image or match.image,
                         "skill_icon": self.skill_icon,
-                        "skill_logo": self.skill_logo,
                         "title": track.title,
                         "skill_id": self.skill_id
                         # "author": t.artist.name,
@@ -266,7 +262,6 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                     "bg_image": match.image,
                     "artist": artist_name,
                     "skill_icon": self.skill_icon,
-                    "skill_logo": self.skill_logo,
                     "title": match.featured_track.title,
                     "skill_id": self.skill_id
                     # "author": match.artist.name,
@@ -287,7 +282,6 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                     "image": match.image,
                     "bg_image": match.image,
                     "skill_icon": self.skill_icon,
-                    "skill_logo": self.skill_logo,
                     "title": track.title,
                     "artist": artist_name,
                     "skill_id": self.skill_id
@@ -311,7 +305,6 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
                     "image": match.image,
                     "bg_image": match.image,
                     "skill_icon": self.skill_icon,
-                    "skill_logo": self.skill_logo,
                     "title": match.title,
                     "artist": artist_name,
                     "skill_id": self.skill_id
