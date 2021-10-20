@@ -4,7 +4,7 @@
   "authorname": "JarbasSkills",
   "foldername": "",
   "url": "https://github.com/JarbasSkills/skill-bandcamp",
-  "branch": "v0.3.1",
+  "branch": "dev",
   "desktopFile": false,
   "warning": "",
   "systemDeps": false,
@@ -17,9 +17,7 @@
   ],
   "examples": [
     "play compressorhead",
-    "play freezing moon by mayhem",
     "play astronaut problems",
-    "search bandcamp for black metal",
-    "play center of all infinity album"
+    "play {something} in bandcamp"
   ]
 }
