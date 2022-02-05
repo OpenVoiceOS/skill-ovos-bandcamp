@@ -1,6 +1,5 @@
 from os.path import join, dirname
 
-from mycroft.util.parse import fuzzy_match
 from ovos_plugin_common_play.ocp import MediaType, \
     PlaybackType
 from ovos_utils.parse import fuzzy_match
