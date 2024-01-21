@@ -78,7 +78,7 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
             self.register_ocp_keyword(MediaType.MUSIC, "album_name", album_names)
         self.register_ocp_keyword(MediaType.MUSIC, "music_streaming_provider", ["Bandcamp", "band camp"])
         self.register_ocp_keyword(MediaType.MUSIC, "music_genre", ["indie", "rock", "metal", "pop", "jazz"])
-        self.export_ocp_keywords_csv("bandcamp.csv")
+        # self.export_ocp_keywords_csv("bandcamp.csv")
 
     @timed_lru_cache(seconds=3600 * 3)
     def search_bandcamp(self, phrase, searchtype="artists"):
