@@ -1,4 +1,4 @@
-# <img src='./ui/logo.png' width='50' height='50' style='vertical-align:bottom'/> BandCamp Skill
+# <img src='./res/logo.png' width='50' height='50' style='vertical-align:bottom'/> BandCamp Skill
 
 ## About
 

@@ -14,7 +14,7 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
     def __init__(self):
         super(BandCampSkill, self).__init__()
         self.supported_media = [MediaType.GENERIC, MediaType.MUSIC]
-        self.skill_icon = join(dirname(__file__), "ui", "logo.png")
+        self.skill_icon = join(dirname(__file__), "res", "logo.png")
 
     @classproperty
     def runtime_requirements(self):
