@@ -1,20 +1,19 @@
 from os.path import join, dirname
 
-from ovos_plugin_common_play.ocp import MediaType, \
-    PlaybackType
-from ovos_utils.parse import fuzzy_match
-from ovos_workshop.skills.common_play import OVOSCommonPlaybackSkill, \
-    ocp_search
-from py_bandcamp import BandCamp
-from ovos_utils.process_utils import RuntimeRequirements
 from ovos_utils import classproperty
+from ovos_utils.parse import fuzzy_match
+from ovos_utils.process_utils import RuntimeRequirements
+from ovos_utils.ocp import MediaType, PlaybackType
+from ovos_workshop.decorators import ocp_search, ocp_featured_media
+from ovos_workshop.skills.common_play import OVOSCommonPlaybackSkill
+from py_bandcamp import BandCamp
 
 
 class BandCampSkill(OVOSCommonPlaybackSkill):
-    def __init__(self):
-        super(BandCampSkill, self).__init__()
-        self.supported_media = [MediaType.GENERIC, MediaType.MUSIC]
-        self.skill_icon = join(dirname(__file__), "res", "logo.png")
+    def __init__(self, *args, **kwargs):
+        super().__init__(skill_icon=join(dirname(__file__), "res", "logo.png"),
+                         supported_media=[MediaType.GENERIC, MediaType.MUSIC],
+                         *args, **kwargs)
 
     @classproperty
     def runtime_requirements(self):
