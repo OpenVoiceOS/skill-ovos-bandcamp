@@ -1,5 +1,9 @@
 # Changelog
 
+## [V0.0.2a2](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/V0.0.2a2) (2024-05-24)
+
+[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/V0.0.2a1...V0.0.2a2)
+
 ## [V0.0.2a1](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/V0.0.2a1) (2024-05-16)
 
 [Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/v0.3.1...V0.0.2a1)
