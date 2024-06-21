@@ -2,7 +2,7 @@ from os.path import join, dirname
 from typing import Iterable
 
 from ovos_utils import classproperty
-from ovos_utils.ocp import MediaType, PlaybackType, Playlist, PluginStream
+from ovos_workshop.backwards_compat import MediaType, PlaybackType, Playlist, PluginStream
 from ovos_utils.parse import fuzzy_match
 from ovos_utils.process_utils import RuntimeRequirements
 from ovos_workshop.decorators import ocp_search
