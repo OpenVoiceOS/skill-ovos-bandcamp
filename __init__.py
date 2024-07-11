@@ -14,6 +14,7 @@ class BandCampSkill(OVOSCommonPlaybackSkill):
     def __init__(self, *args, **kwargs):
         super().__init__(skill_icon=join(dirname(__file__), "res", "logo.png"),
                          supported_media=[MediaType.GENERIC, MediaType.MUSIC],
+                         skill_voc_filename="bandcamp_skill",
                          *args, **kwargs)
 
     @classproperty
