@@ -1,0 +1,15 @@
+LICENSE
+MANIFEST.in
+README.md
+__init__.py
+setup.py
+version.py
+locale/en-us/bandcamp.voc
+locale/en-us/bandcamp_skill.voc
+res/logo.png
+skill_bandcamp.egg-info/PKG-INFO
+skill_bandcamp.egg-info/SOURCES.txt
+skill_bandcamp.egg-info/dependency_links.txt
+skill_bandcamp.egg-info/entry_points.txt
+skill_bandcamp.egg-info/requires.txt
+skill_bandcamp.egg-info/top_level.txt

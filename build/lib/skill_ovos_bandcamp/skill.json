@@ -1,0 +1,23 @@
+{
+  "name": "Bandcamp Skill",
+  "skillname": "skill-bandcamp",
+  "authorname": "JarbasSkills",
+  "foldername": "",
+  "url": "https://github.com/JarbasSkills/skill-bandcamp",
+  "branch": "dev",
+  "desktopFile": false,
+  "warning": "",
+  "systemDeps": false,
+  "platforms": [
+    "arm",
+    "arm64",
+    "i386",
+    "x86_64",
+    "ia64"
+  ],
+  "examples": [
+    "play compressorhead",
+    "play astronaut problems",
+    "play {something} in bandcamp"
+  ]
+}
