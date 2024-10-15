@@ -1,11 +1,12 @@
 # Changelog
 
-## [Unreleased](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/HEAD)
+## [0.0.5a1](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/0.0.5a1) (2024-10-15)
 
-[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/V0.0.2...HEAD)
+[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/V0.0.2...0.0.5a1)
 
 **Merged pull requests:**
 
+- fix:long description [\#8](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/pull/8) ([JarbasAl](https://github.com/JarbasAl))
 - fix:update\_requirements [\#7](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/pull/7) ([JarbasAl](https://github.com/JarbasAl))
 
 
