@@ -1,49 +1,13 @@
 # Changelog
 
-## [V0.0.2a5](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/V0.0.2a5) (2024-07-11)
+## [0.0.5a1](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/0.0.5a1) (2024-10-15)
 
-[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/V0.0.2a4...V0.0.2a5)
-
-**Merged pull requests:**
-
-- feat/skill\_aliases [\#6](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/pull/6) ([JarbasAl](https://github.com/JarbasAl))
-
-## [V0.0.2a4](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/V0.0.2a4) (2024-06-21)
-
-[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/V0.0.2a3...V0.0.2a4)
+[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/V0.0.2...0.0.5a1)
 
 **Merged pull requests:**
 
-- refactor/ocp\_modernize [\#5](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/pull/5) ([JarbasAl](https://github.com/JarbasAl))
-
-## [V0.0.2a3](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/V0.0.2a3) (2024-05-25)
-
-[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/V0.0.2a2...V0.0.2a3)
-
-## [V0.0.2a2](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/V0.0.2a2) (2024-05-24)
-
-[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/V0.0.2a1...V0.0.2a2)
-
-## [V0.0.2a1](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/V0.0.2a1) (2024-05-16)
-
-[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/v0.3.1...V0.0.2a1)
-
-**Merged pull requests:**
-
-- feat automations [\#3](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/pull/3) ([JarbasAl](https://github.com/JarbasAl))
-- feat/runtime\_requirements [\#2](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/pull/2) ([JarbasAl](https://github.com/JarbasAl))
-
-## [v0.3.1](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/v0.3.1) (2021-04-04)
-
-[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/v0.3...v0.3.1)
-
-## [v0.3](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/v0.3) (2021-03-10)
-
-[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/v0.2...v0.3)
-
-## [v0.2](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/tree/v0.2) (2021-03-10)
-
-[Full Changelog](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/compare/9ff4ba8b059bca5ddc00d02a6028bfb9ce740844...v0.2)
+- fix:long description [\#8](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/pull/8) ([JarbasAl](https://github.com/JarbasAl))
+- fix:update\_requirements [\#7](https://github.com/OpenVoiceOS/skill-ovos-bandcamp/pull/7) ([JarbasAl](https://github.com/JarbasAl))
 
 
 
